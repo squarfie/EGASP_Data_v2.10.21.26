@@ -911,7 +911,7 @@ def generate_pdf(request, id):
     # Debugging: Print antibiotic entries to verify data
     print("Antibiotic Entries Count:", antibiotic_entries.count())
     for entry in antibiotic_entries:
-        print("Antibiotic Entry:", entry.ab_Abx_code, entry.ab_Disk_value, entry.ab_MIC_value, entry.ab_Retest_MICValue)
+        print("Antibiotic Entry:", entry.ab_Abx_code, entry.ab_Disk_value, entry.ab_MIC_value, entry.ab_Retest_MIC_operand, entry.ab_Retest_MICValue)
 
     # Use the static URL for the logo
     logo_path = static("assets/img/brand/arsplogo.jpg")

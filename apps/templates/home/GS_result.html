@@ -149,8 +149,8 @@
                 <tr><td colspan="2"></td><td colspan="6" style="text-align: left;"><u>{{isolate.Growth_span_other|default:""|safe}}</u></td></tr>
             </tbody>
     </table>
-    <br>
             <table >
+                <tr></tr>
             {% if isolate.Culture_Result == "Positive" %}
                 <thead>
                 <tr>
@@ -183,9 +183,11 @@
                 {% endfor %}
 
                         <tr>
-                        <td colspan="3" style="text-align: left; font-size: medium;"><i>*AST: Antmicrobial Susceptibility Test.</i></td>
-                        </tr>
+                        <td colspan="2" style="text-align: left; font-size: medium;"><i>*AST: Antmicrobial Susceptibility Test.</i></td>
+                                         
+                        <td  colspan="2" style="text-align: right; font-size: medium;">Date of Susceptibility Test: <strong> {{isolate.Susceptibility_Testing_Date}} </strong></td>
 
+                        </tr>
 
                 </tbody>
             {% else %}
@@ -214,13 +216,91 @@
                 </tbody>
             {% endif %}
             </table>
+            <br>
+           
+{% if isolate.Retested_Mic == "Yes" %}
+
+<table>
+
+    <thead>
+     <tr></tr>
+    <th colspan="3" style="text-align: left; font-size: 14px;">
+     RETESTED ANTIMICROBIAL SUSCEPTIBILITY RESULT
+    </th>
+    </tr>
+        <tr>
+            <th  scope="col" style="border: 1px solid gray;">
+                ANTIBIOTIC
+            </th>
+            <th  scope="col" style="border: 1px solid gray;">
+                TEST METHOD
+            </th>
+            <th  scope="col" style="border: 1px solid gray;">
+                AST RESULT (&micro;g/mL)
+            </th>
+            <th  scope="col" style="border: 1px solid gray;">
+                INTERPRETATION
+            </th>
+        </tr>
+    </thead>
+
+    <tbody>
+        {% for entry in antibiotic_entries %}
+            {% if entry.ab_Retest_DiskValue is not None or entry.ab_Retest_MICValue is not None %}
+                <tr>
+                    <td style="text-align: center;border: 1px solid gray;">
+                        <strong>{{ entry.ab_Retest_Antibiotic }}</strong>
+                    </td>
+
+                    {% if entry.ab_Retest_DiskValue is not None %}
+
+                        <td style="text-align: center;border: 1px solid gray;">
+                            DISK (mm)
+                        </td>
+
+                        <td style="text-align: center;border: 1px solid gray;">
+                            {{ entry.ab_Retest_DiskValue }}
+                        </td>
+
+                        <td style="text-align: center;border: 1px solid gray;">
+                            {{ entry.ab_Retest_Disk_RIS|default:"-" }}
+                        </td>
+
+                    {% else %}
+
+                        <td style="text-align: center;border: 1px solid gray;">
+                            Gradient E-test
+                        </td>
+
+                        <td style="text-align: center;border: 1px solid gray;">
+                            {% if entry.ab_Retest_MIC_operand %}
+                                {{ entry.ab_Retest_MIC_operand }}
+                            {% endif %}
+                            {{ entry.ab_Retest_MICValue|mic_format }} &micro;g/mL
+                        </td>
+
+                        <td style="text-align: center;border: 1px solid gray;">
+                            {{ entry.ab_Retest_MIC_RIS|default:"-" }}
+                        </td>
+
+                    {% endif %}
+                </tr>
+            {% endif %}
+        {% endfor %}
+
+    </tbody>
+                    <tr>
+                 <td colspan="2" style="text-align: left; font-size: medium;"><i>*AST: Pour Plate Method.</i></td>
+                                         
+    <td  colspan="2" style="text-align: right; font-size: medium;"> {% if isolate.Confirmation_Ast_Date %} Retest Date: <strong> {{isolate.Confirmation_Ast_Date}} </strong>{% else %} &nbsp; {% endif %}</td>
+
+            </tr>
+</table>
+
+{% endif %}
 
 
 
-
-    <br>
-
-    
 
 
 <!-- Signatures -->
@@ -236,17 +316,17 @@
         <tr>
             <td colspan="2" style="text-align: center;">{{isolate.Date_Released}}</td>
             <td style="text-align: center;" colspan="2" >
-                <strong class="signature-name"><br><br>Jaywardeen P. Abad, RMT</strong><br>
+                <strong class="signature-name"><br>Jaywardeen P. Abad, RMT</strong><br>
                 <span style="font-size: 10px;">License Number: 0042797</span> <br>
                 <span style="font-size: 10px;">Medical Technologist</span>
             </td>
             <td style="text-align: center;" colspan="2">
-                 <strong class="signature-name"><br><br>Manuel C. Jamoralin Jr., RMT</strong><br>
+                 <strong class="signature-name"><br>Manuel C. Jamoralin Jr., RMT</strong><br>
                 <span style="font-size: 10px;"> License Number: 0032847 </span> <br>
                 <span style="font-size: 10px;"> Medical Technologist </span>
             </td>
             <td style="text-align: center;" colspan="2">
-                <strong class="signature-name"><br><br>Sonia B. Sia, MD</strong><br>
+                <strong class="signature-name"><br>Sonia B. Sia, MD</strong><br>
                 <span style="font-size: 10px;" >License Number: 0083194</span> <br>
                 <span style="font-size: 10px;">Head, ARSRL</span>
             </td>
