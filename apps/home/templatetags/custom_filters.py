@@ -25,8 +25,20 @@ def get_existing_value(existing_entries, entry_id, value_type):
     """
     Retrieves the existing value for a given breakpoint entry.
     """
-    # entry = existing_entries.filter(ab_breakpoints_id=entry_id).first()
-    entry = existing_entries.filter(ab_breakpoints_id__in=[entry_id]).first()
+    from apps.home.models import BreakpointsTable
+
+    # Existing results can come from CSV imports or older records that have
+    # an antibiotic code but no current BreakpointsTable M2M association.
+    breakpoint = BreakpointsTable.objects.filter(pk=entry_id).first()
+    is_retest = value_type.startswith("retest_")
+    code_field = "ab_Retest_Abx_code" if is_retest else "ab_Abx_code"
+    entry = None
+    if breakpoint and breakpoint.Whonet_Abx:
+        entry = existing_entries.filter(
+            **{code_field + "__iexact": breakpoint.Whonet_Abx}
+        ).first()
+    if entry is None:
+        entry = existing_entries.filter(ab_breakpoints_id__in=[entry_id]).first()
 
     if entry:
         if value_type == 'disk':
