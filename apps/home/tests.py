@@ -504,3 +504,69 @@ class AntibioticEditPreservationTests(TestCase):
         self.assertIsNone(self.initial_result.ab_MIC_value)
         self.assertEqual(str(self.retest_result.ab_Retest_MICValue), "0.125")
         self.assertEqual(AntibioticEntry.objects.count(), 2)
+
+
+class EditFormValuePreservationTests(TestCase):
+    """Stored edit values must render as browser-compatible form controls."""
+
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="date-edit-user", password="test-password"
+        )
+        self.client.force_login(self.user)
+        self.patient = Egasp_Data.objects.create(
+            Egasp_Id="DATE260001",
+            Consult_Date=date(2026, 11, 21),
+            Confirmation_Ast_Date=date(2026, 11, 27),
+            Susceptibility_Testing_Date=date(2026, 11, 25),
+            PermAdd_same_CurrAdd=True,
+        )
+        self.url = reverse("edit_data", args=[self.patient.pk])
+
+    def test_saved_confirmation_date_is_visible_in_edit_form(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'name="Confirmation_Ast_Date"')
+        self.assertContains(response, 'value="2026-11-27"')
+
+    def test_other_saved_dates_use_iso_values_for_native_date_inputs(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'value="2026-11-21"')
+        self.assertContains(response, 'value="2026-11-25"')
+
+    def test_saved_same_address_checkbox_remains_checked(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        from html.parser import HTMLParser
+
+        class CheckboxParser(HTMLParser):
+            checked = False
+
+            def handle_starttag(self, tag, attrs):
+                attributes = dict(attrs)
+                if tag == "input" and attributes.get("name") == "PermAdd_same_CurrAdd":
+                    self.checked = "checked" in attributes
+
+        parser = CheckboxParser()
+        parser.feed(response.content.decode())
+        self.assertTrue(parser.checked)
+
+    def test_no_positive_tabindex_overrides_browser_field_order(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        from html.parser import HTMLParser
+
+        class TabIndexParser(HTMLParser):
+            positive_indices = []
+
+            def handle_starttag(self, tag, attrs):
+                attributes = dict(attrs)
+                if tag in ("input", "select", "textarea"):
+                    value = attributes.get("tabindex")
+                    if value is not None and value.isdigit() and int(value) > 0:
+                        self.positive_indices.append(int(value))
+
+        parser = TabIndexParser()
+        parser.feed(response.content.decode())
+        self.assertEqual(parser.positive_indices, [])
