@@ -417,3 +417,90 @@ class DashboardPaginationTests(TestCase):
         self.assertContains(response, 'name="q"')
         self.assertContains(response, 'name="page_size"')
         self.assertNotContains(response, 'class="dashboard-stat')
+
+
+class AntibioticEditPreservationTests(TestCase):
+    """Editing demographics must not silently clear or hide saved AST results."""
+
+    def setUp(self):
+        from .models import BreakpointsTable
+
+        self.user = User.objects.create_user(
+            username="ast-editor", password="test-password"
+        )
+        self.client.force_login(self.user)
+        self.patient = Egasp_Data.objects.create(Egasp_Id="AST260001")
+        self.url = reverse("edit_data", args=[self.patient.pk])
+        self.primary = BreakpointsTable.objects.create(
+            Whonet_Abx="AZM_NM", Abx_code="AZM", Antibiotic="Azithromycin",
+            Show=True, Retest=False, Disk_Abx=False,
+        )
+        self.retest = BreakpointsTable.objects.create(
+            Whonet_Abx="CRO_NM", Abx_code="CRO", Antibiotic="Ceftriaxone",
+            Show=False, Retest=True, Disk_Abx=False,
+        )
+        # These mimic imported/legacy AST rows without a breakpoint M2M link.
+        self.initial_result = AntibioticEntry.objects.create(
+            ab_idNumber_egasp=self.patient, ab_Abx_code="AZM_NM",
+            ab_Antibiotic="Azithromycin", ab_MIC_value="1.000",
+            ab_MIC_operand="<",
+        )
+        self.retest_result = AntibioticEntry.objects.create(
+            ab_idNumber_egasp=self.patient, ab_Retest_Abx_code="CRO_NM",
+            ab_Retest_Antibiotic="Ceftriaxone", ab_Retest_MICValue="0.125",
+            ab_Retest_MIC_operand="<=",
+        )
+
+    def _post_with_valid_patient_form(self, payload):
+        from unittest.mock import patch
+
+        # Isolate AST processing from unrelated required clinical form fields.
+        with patch("apps.home.views.egasp_Form") as form_class:
+            form = form_class.return_value
+            form.is_valid.return_value = True
+            form.cleaned_data = {}
+            form.save.return_value = self.patient
+            return self.client.post(self.url, payload)
+
+    def test_edit_page_renders_saved_values_without_breakpoint_links(self):
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'name="mic_%s"' % self.primary.pk)
+        self.assertContains(response, 'value="1.000"')
+        self.assertContains(response, 'name="retest_mic_%s"' % self.retest.pk)
+        self.assertContains(response, 'value="0.125"')
+
+    def test_demographic_edit_without_ast_fields_preserves_results(self):
+        response = self._post_with_valid_patient_form({})
+        self.assertEqual(response.status_code, 302)
+        self.initial_result.refresh_from_db()
+        self.retest_result.refresh_from_db()
+        self.assertEqual(str(self.initial_result.ab_MIC_value), "1.000")
+        self.assertEqual(str(self.retest_result.ab_Retest_MICValue), "0.125")
+        self.assertEqual(self.initial_result.ab_MIC_operand, "<")
+        self.assertEqual(self.retest_result.ab_Retest_MIC_operand, "<=")
+        self.assertEqual(AntibioticEntry.objects.count(), 2)
+
+    def test_editing_one_antibiotic_does_not_erase_other_results(self):
+        response = self._post_with_valid_patient_form({
+            f"mic_{self.primary.pk}": "2.000",
+            f"mic_operand_{self.primary.pk}": ">",
+        })
+        self.assertEqual(response.status_code, 302)
+        self.initial_result.refresh_from_db()
+        self.retest_result.refresh_from_db()
+        self.assertEqual(str(self.initial_result.ab_MIC_value), "2.000")
+        self.assertEqual(self.initial_result.ab_MIC_operand, ">")
+        self.assertEqual(str(self.retest_result.ab_Retest_MICValue), "0.125")
+        self.assertEqual(AntibioticEntry.objects.count(), 2)
+
+    def test_explicitly_cleared_mic_is_cleared_without_removing_row(self):
+        response = self._post_with_valid_patient_form({
+            f"mic_{self.primary.pk}": "",
+        })
+        self.assertEqual(response.status_code, 302)
+        self.initial_result.refresh_from_db()
+        self.retest_result.refresh_from_db()
+        self.assertIsNone(self.initial_result.ab_MIC_value)
+        self.assertEqual(str(self.retest_result.ab_Retest_MICValue), "0.125")
+        self.assertEqual(AntibioticEntry.objects.count(), 2)
