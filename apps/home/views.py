@@ -749,121 +749,95 @@ def edit_data(request, id):
 
             egasp_instance.save()
 
-            # Update or Create Antibiotic Entries (whonet_abx_data)
-            for entry in whonet_abx_data:
-                abx_code = entry.Whonet_Abx
+            # Only write AST fields that were actually submitted by the edit form.
+            # Missing controls (or changed breakpoint configuration) must never
+            # erase previously saved susceptibility results.
+            with transaction.atomic():
+                for entry in whonet_abx_data:
+                    value_name = f'disk_{entry.pk}' if entry.Disk_Abx else f'mic_{entry.pk}'
+                    if value_name not in request.POST:
+                        continue
 
-                # Fetch user input values for MIC and Disk
-                if entry.Disk_Abx:
-                    disk_value = request.POST.get(f'disk_{entry.id}')
-                    mic_value = ''
-                    mic_operand = ''
-                    alert_mic = False  
-                else:
-                    mic_value = request.POST.get(f'mic_{entry.id}')
-                    mic_operand = request.POST.get(f'mic_operand_{entry.id}')
-                    alert_mic = f'alert_mic_{entry.id}' in request.POST
-                    disk_value = ''
-                
-                # Check and update mic_operand if needed
-                mic_operand = mic_operand.strip() if mic_operand else ''
+                    raw_value = (request.POST.get(value_name) or '').strip()
+                    existing = AntibioticEntry.objects.filter(
+                        ab_idNumber_egasp=egasp_instance,
+                        ab_Abx_code=entry.Whonet_Abx,
+                    ).first()
+                    if existing is None and not raw_value:
+                        continue  # Do not create empty antibiotic records.
 
-                # Convert `disk_value` safely
-                disk_value = int(disk_value) if disk_value and disk_value.strip().isdigit() else None
-
-                # Debugging: Print the values before saving
-                print(f"Saving values for Antibiotic Entry {entry.id}:", {
-                    'mic_operand': mic_operand,
-                    'disk_value': disk_value,
-                    'mic_value': mic_value,
-                })
-                
-                # Get or create antibiotic entry
-                antibiotic_entry, created = AntibioticEntry.objects.update_or_create(
-                    ab_idNumber_egasp=egasp_instance,
-                    ab_Abx_code=abx_code,
-                    defaults={
+                    defaults = {
                         "ab_EgaspId": egasp_instance.Egasp_Id,
                         "ab_Antibiotic": entry.Antibiotic,
                         "ab_Abx": entry.Abx_code,
-                        "ab_Disk_value": disk_value,
-                        "ab_MIC_value": mic_value or None,
-                        "ab_MIC_operand": mic_operand,
                         "ab_R_breakpoint": entry.R_val or None,
                         "ab_I_breakpoint": entry.I_val or None,
                         "ab_SDD_breakpoint": entry.SDD_val or None,
                         "ab_S_breakpoint": entry.S_val or None,
-                        "ab_AlertMIC": alert_mic,
-                        "ab_Alert_val": entry.Alert_val if alert_mic else '',
                     }
-                )
+                    if entry.Disk_Abx:
+                        defaults["ab_Disk_value"] = int(raw_value) if raw_value else None
+                        if not raw_value:
+                            defaults["ab_Disk_RIS"] = ""
+                    else:
+                        defaults["ab_MIC_value"] = raw_value or None
+                        operand_name = f'mic_operand_{entry.pk}'
+                        if operand_name in request.POST:
+                            defaults["ab_MIC_operand"] = (request.POST[operand_name] or '').strip()
+                        defaults["ab_AlertMIC"] = f'alert_mic_{entry.pk}' in request.POST
+                        defaults["ab_Alert_val"] = entry.Alert_val if defaults["ab_AlertMIC"] else ""
+                        if not raw_value:
+                            defaults["ab_MIC_RIS"] = ""
 
-                antibiotic_entry.ab_breakpoints_id.set([entry.pk])
-                
-                # update RIS fields where disk or mic values are deleted during editing
-                if not disk_value and not mic_value:
-                    antibiotic_entry.ab_Disk_RIS = ''
-                    antibiotic_entry.ab_MIC_RIS = ''
-                    antibiotic_entry.save(update_fields=['ab_Disk_RIS', 'ab_MIC_RIS'])
+                    antibiotic_entry, _ = AntibioticEntry.objects.update_or_create(
+                        ab_idNumber_egasp=egasp_instance,
+                        ab_Abx_code=entry.Whonet_Abx,
+                        defaults=defaults,
+                    )
+                    antibiotic_entry.ab_breakpoints_id.set([entry.pk])
 
-            # Separate loop for Retest Data
-            for retest in whonet_retest_data:
-                retest_abx_code = retest.Whonet_Abx
+                for retest in whonet_retest_data:
+                    value_name = f'retest_disk_{retest.pk}' if retest.Disk_Abx else f'retest_mic_{retest.pk}'
+                    if value_name not in request.POST:
+                        continue
 
-                # Fetch user input values for MIC and Disk
-                if retest.Disk_Abx:
-                    retest_disk_value = request.POST.get(f'retest_disk_{retest.id}')
-                    retest_mic_value = ''
-                    retest_mic_operand = ''
-                    retest_alert_mic = False
-                else:
-                    retest_mic_value = request.POST.get(f'retest_mic_{retest.id}')
-                    retest_mic_operand = request.POST.get(f'retest_mic_operand_{retest.id}')
-                    retest_alert_mic = f'retest_alert_mic_{retest.id}' in request.POST
-                    retest_disk_value = ''
+                    raw_value = (request.POST.get(value_name) or '').strip()
+                    existing = AntibioticEntry.objects.filter(
+                        ab_idNumber_egasp=egasp_instance,
+                        ab_Retest_Abx_code=retest.Whonet_Abx,
+                    ).first()
+                    if existing is None and not raw_value:
+                        continue
 
-                # Check and update retest mic_operand if needed
-                retest_mic_operand = retest_mic_operand.strip() if retest_mic_operand else ''
-
-                # Convert `retest_disk_value` safely
-                retest_disk_value = int(retest_disk_value) if retest_disk_value and retest_disk_value.strip().isdigit() else None
-
-                # Debugging: Print the values before saving
-                print(f"Saving values for Retest Entry {retest.id}:", {
-                    'retest_mic_operand': retest_mic_operand,
-                    'retest_disk_value': retest_disk_value,
-                    'retest_mic_value': retest_mic_value,
-                    'retest_alert_mic': retest_alert_mic,
-                    'retest_alert_val': retest.Alert_val if retest_alert_mic else '',
-                })
-
-                # Get or update retest antibiotic entry
-                retest_entry, created = AntibioticEntry.objects.update_or_create(
-                    ab_idNumber_egasp=egasp_instance,
-                    ab_Retest_Abx_code=retest_abx_code,
-                    defaults={
-                        "ab_EgaspId" :egasp_instance.Egasp_Id,
-                        "ab_Retest_DiskValue": retest_disk_value,
-                        "ab_Retest_MICValue": retest_mic_value or None,
-                        "ab_Retest_MIC_operand": retest_mic_operand,
+                    defaults = {
+                        "ab_EgaspId": egasp_instance.Egasp_Id,
                         "ab_Retest_Antibiotic": retest.Antibiotic,
                         "ab_Retest_Abx": retest.Abx_code,
                         "ab_Ret_R_breakpoint": retest.R_val or None,
                         "ab_Ret_S_breakpoint": retest.S_val or None,
                         "ab_Ret_SDD_breakpoint": retest.SDD_val or None,
                         "ab_Ret_I_breakpoint": retest.I_val or None,
-                        "ab_Retest_AlertMIC": retest_alert_mic,
-                        "ab_Retest_Alert_val": retest.Alert_val if retest_alert_mic else '',
                     }
-                )
+                    if retest.Disk_Abx:
+                        defaults["ab_Retest_DiskValue"] = int(raw_value) if raw_value else None
+                        if not raw_value:
+                            defaults["ab_Retest_Disk_RIS"] = ""
+                    else:
+                        defaults["ab_Retest_MICValue"] = raw_value or None
+                        operand_name = f'retest_mic_operand_{retest.pk}'
+                        if operand_name in request.POST:
+                            defaults["ab_Retest_MIC_operand"] = (request.POST[operand_name] or '').strip()
+                        defaults["ab_Retest_AlertMIC"] = f'retest_alert_mic_{retest.pk}' in request.POST
+                        defaults["ab_Retest_Alert_val"] = retest.Alert_val if defaults["ab_Retest_AlertMIC"] else ""
+                        if not raw_value:
+                            defaults["ab_Retest_MIC_RIS"] = ""
 
-                retest_entry.ab_breakpoints_id.set([retest.pk])
-            
-            # update RIS fields where disk or mic values are deleted during editing
-                if not retest_disk_value and not retest_mic_value:
-                    retest_entry.ab_Retest_Disk_RIS = ''
-                    retest_entry.ab_Retest_MIC_RIS = ''
-                    retest_entry.save(update_fields=['ab_Retest_Disk_RIS', 'ab_Retest_MIC_RIS'])
+                    antibiotic_entry, _ = AntibioticEntry.objects.update_or_create(
+                        ab_idNumber_egasp=egasp_instance,
+                        ab_Retest_Abx_code=retest.Whonet_Abx,
+                        defaults=defaults,
+                    )
+                    antibiotic_entry.ab_breakpoints_id.set([retest.pk])
 
             messages.success(request, 'Data updated successfully')
             return redirect('/show/')
@@ -878,8 +852,10 @@ def edit_data(request, id):
     all_entries = AntibioticEntry.objects.filter(ab_idNumber_egasp=isolates)
 
     # Separate them based on the 'retest' condition
-    existing_entries = all_entries.filter(ab_Retest_Abx_code__isnull=True)  # Regular entries
-    retest_entries = all_entries.filter(ab_Retest_Abx_code__isnull=False)   # Retest entries
+    # Include imported / legacy rows, which may lack the breakpoint M2M link,
+    # and rows that contain both initial and retest results.
+    existing_entries = all_entries
+    retest_entries = all_entries
 
     context = {
         'isolates': isolates,
