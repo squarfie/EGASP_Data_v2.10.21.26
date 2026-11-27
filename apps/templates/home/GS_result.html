@@ -220,78 +220,39 @@
            
 {% if isolate.Retested_Mic == "Yes" %}
 
-<table style="width: 100%; border-collapse: collapse; font-size: 10px;">
+<h5 style="text-align: left; font-size: 14px; margin: 0 0 8px 0;">
+    RETESTED ANTIMICROBIAL SUSCEPTIBILITY RESULT
+</h5>
+
+<table>
     <thead>
         <tr>
-            <th colspan="4" style="text-align: left; font-size: 14px; padding: 5px 2px;">
-                RETESTED ANTIMICROBIAL SUSCEPTIBILITY RESULT
-            </th>
-        </tr>
-        <tr>
-            <th scope="col" style="width: 25%; border: 1px solid gray; padding: 3px; text-align: center;">
-                ANTIBIOTIC
-            </th>
-            <th scope="col" style="width: 25%; border: 1px solid gray; padding: 3px; text-align: center;">
-                TEST METHOD
-            </th>
-            <th scope="col" style="width: 25%; border: 1px solid gray; padding: 3px; text-align: center;">
-                AST RESULT (&micro;g/mL)
-            </th>
-            <th scope="col" style="width: 25%; border: 1px solid gray; padding: 3px; text-align: center;">
-                INTERPRETATION
-            </th>
+            <th scope="col" style="border: 1px solid gray;">ANTIBIOTIC</th>
+            <th scope="col" style="border: 1px solid gray;">TEST METHOD</th>
+            <th scope="col" style="border: 1px solid gray;">AST RESULT (&micro;g/mL)</th>
+            <th scope="col" style="border: 1px solid gray;">INTERPRETATION</th>
         </tr>
     </thead>
-
     <tbody>
         {% for entry in antibiotic_entries %}
             {% if entry.ab_Retest_DiskValue is not None or entry.ab_Retest_MICValue is not None %}
                 <tr>
-                    <td style="text-align: center;border: 1px solid gray;">
-                        <strong>{{ entry.ab_Retest_Antibiotic }}</strong>
-                    </td>
-
+                    <td style="text-align: center; border: 1px solid gray;"><strong>{{ entry.ab_Retest_Antibiotic }}</strong></td>
                     {% if entry.ab_Retest_DiskValue is not None %}
-
-                        <td style="text-align: center;border: 1px solid gray;">
-                            DISK (mm)
-                        </td>
-
-                        <td style="text-align: center;border: 1px solid gray;">
-                            {{ entry.ab_Retest_DiskValue }}
-                        </td>
-
-                        <td style="text-align: center;border: 1px solid gray;">
-                            {{ entry.ab_Retest_Disk_RIS|default:"-" }}
-                        </td>
-
+                        <td style="text-align: center; border: 1px solid gray;">DISK (mm)</td>
+                        <td style="text-align: center; border: 1px solid gray;">{{ entry.ab_Retest_DiskValue }}</td>
+                        <td style="text-align: center; border: 1px solid gray;">{{ entry.ab_Retest_Disk_RIS|default:"-" }}</td>
                     {% else %}
-
-                        <td style="text-align: center;border: 1px solid gray;">
-                            Gradient E-test
-                        </td>
-
-                        <td style="text-align: center;border: 1px solid gray;">
-                            {% if entry.ab_Retest_MIC_operand %}
-                                {{ entry.ab_Retest_MIC_operand }}
-                            {% endif %}
-                            {{ entry.ab_Retest_MICValue|mic_format }} &micro;g/mL
-                        </td>
-
-                        <td style="text-align: center;border: 1px solid gray;">
-                            {{ entry.ab_Retest_MIC_RIS|default:"-" }}
-                        </td>
-
+                        <td style="text-align: center; border: 1px solid gray;">Gradient E-test</td>
+                        <td style="text-align: center; border: 1px solid gray;">{% if entry.ab_Retest_MIC_operand %}{{ entry.ab_Retest_MIC_operand }}{% endif %} {{ entry.ab_Retest_MICValue|mic_format }} &micro;g/mL</td>
+                        <td style="text-align: center; border: 1px solid gray;">{{ entry.ab_Retest_MIC_RIS|default:"-" }}</td>
                     {% endif %}
                 </tr>
             {% endif %}
         {% endfor %}
-
         <tr>
-            <td colspan="2" style="text-align: left; font-size: 10px; padding: 4px 2px;">
-                <i>*AST: Pour Plate Method.</i>
-            </td>
-            <td colspan="2" style="text-align: right; font-size: 10px; padding: 4px 2px;">
+            <td colspan="2" style="text-align: left; font-size: medium;"><i>*AST: Pour Plate Method.</i></td>
+            <td colspan="2" style="text-align: right; font-size: medium;">
                 {% if isolate.Confirmation_Ast_Date %}
                     Retest Date: <strong>{{ isolate.Confirmation_Ast_Date }}</strong>
                 {% endif %}
