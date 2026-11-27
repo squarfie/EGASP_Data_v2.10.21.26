@@ -1363,7 +1363,8 @@ label.form-control-label{
                         <div class="row">
                           <div class="col-lg-6">
                             <div class="form-group">
-                            <label class='form-control-label' for='Retested_Mic'>Retested_Mic</label><input id='Retested_Mic' class='form-control' value="{{isolates.Retested_Mic}}"  type='text' name='Retested_Mic' tabindex="200"/>
+                            <label class="form-control-label" for="{{ form.Retested_Mic.id_for_label }}">Retested MIC</label>
+                            {{ form.Retested_Mic|add_class:"form-control"|attr:"tabindex:200" }}
                           </div></div>
                           <div class="col-lg-6">
                             <div class="form-group">
